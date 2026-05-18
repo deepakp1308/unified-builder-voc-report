@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Journey Builder VOC Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface-elevated: #1f2f4d;
+            --text: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #707070;
+            --accent: #4fc3f7;
+            --danger: #ef5350;
+            --warning: #ffa726;
+            --success: #66bb6a;
+            --info: #42a5f5;
+            --border: #2a3a5e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        h2 { font-size: 20px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        h3 { font-size: 16px; font-weight: 600; margin: 16px 0 8px; }
+        .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 4px; }
+        .nav-link { color: var(--accent); text-decoration: none; font-size: 13px; }
+        .nav-link:hover { text-decoration: underline; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        .stat-danger .stat-value { color: var(--danger); }
+        .stat-warning .stat-value { color: var(--warning); }
+        .stat-success .stat-value { color: var(--success); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 24px;
+            font-size: 13px;
+        }
+        th {
+            background: var(--surface);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            color: var(--accent);
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover td { background: var(--surface); }
+        tr.row-danger td { border-left: 3px solid var(--danger); }
+        tr.row-warning td { border-left: 3px solid var(--warning); }
+        .chart-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 12px 0;
+        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .callout {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .callout-danger { background: rgba(239,83,80,0.12); border-left: 4px solid var(--danger); color: var(--danger); }
+        .callout-warning { background: rgba(255,167,38,0.12); border-left: 4px solid var(--warning); color: var(--warning); }
+        .callout-info { background: rgba(66,165,245,0.12); border-left: 4px solid var(--info); color: var(--info); }
+        .callout-neutral { background: rgba(224,224,224,0.08); border-left: 4px solid var(--text-muted); color: var(--text-secondary); }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .card h3 { margin-top: 0; color: var(--accent); }
+        .card p { font-size: 13px; margin: 6px 0; }
+        .updated { color: var(--text-muted); font-size: 11px; margin-top: 32px; text-align: center; }
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .pill-critical { background: rgba(239,83,80,0.2); color: var(--danger); }
+        .pill-high { background: rgba(255,167,38,0.2); color: var(--warning); }
+        .pill-medium { background: rgba(66,165,245,0.2); color: var(--info); }
+        .pill-low { background: rgba(224,224,224,0.15); color: var(--text-secondary); }
+        .pill-p0 { background: rgba(239,83,80,0.25); color: var(--danger); }
+        .pill-p1 { background: rgba(255,167,38,0.25); color: var(--warning); }
+        .pill-p2 { background: rgba(66,165,245,0.25); color: var(--info); }
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .grid-2 { grid-template-columns: 1fr; }
+            body { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="nav-link">&larr; View Email Builder Analysis</a>
+
+    <h1 style="margin-top: 12px;">Customer Journey Builder VOC Analysis</h1>
+    <p class="subtitle">#hvc_feedback and #mc-hvc-escalations | Nov 2024 &ndash; May 2026 | HVC customers ($299+ MRR)</p>
+    <p class="subtitle">Filtered to CJB/MAF. Excludes classic automation unless migration-related. Deduplicated by user_id + theme per month.</p>
+
+    <div class="stats-grid">
+        <div class="stat"><div class="stat-value">~580</div><div class="stat-label">Total CJB Feedback Items (18mo)</div></div>
+        <div class="stat stat-danger"><div class="stat-value">71%</div><div class="stat-label">Negative Sentiment</div></div>
+        <div class="stat stat-warning"><div class="stat-value">$487K</div><div class="stat-label">Est. MRR Exposed</div></div>
+        <div class="stat"><div class="stat-value">312</div><div class="stat-label">Unique Customers</div></div>
+    </div>
+
+    <h2>Sentiment Comparison: CJB vs Overall Platform</h2>
+    <div class="chart-container">
+        <canvas id="sentimentCompareChart" height="60"></canvas>
+    </div>
+
+    <h2>Top Themes Driving CJB Feedback</h2>
+    <p class="subtitle">Classified from ~580 CJB/MAF-related feedback items. Deduplicated: same user + same theme counted once per month.</p>
+    <div class="chart-container">
+        <canvas id="themesChart" height="120"></canvas>
+    </div>
+
+    <h2>Full Issue Breakdown by Theme</h2>
+    <p class="subtitle">Each row maps to one of the top themes above. Sub-issues within a theme sum approximately to its bar chart total.</p>
+    <table>
+        <thead><tr><th>Theme</th><th>Sub-Issue</th><th>Count</th><th>Unique Users</th><th>Avg MRR</th><th>Total MRR</th><th>Severity</th><th>Trend</th></tr></thead>
+        <tbody>
+            <tr class="row-danger"><td>Classic-to-CJB Migration</td><td>Historical reporting data lost on conversion</td><td>28</td><td>24</td><td>$892</td><td>$21,408</td><td><span class="pill pill-critical">Critical</span></td><td>Worsening</td></tr>
+            <tr class="row-danger"><td>Classic-to-CJB Migration</td><td>No notification classic automations being sunset</td><td>22</td><td>18</td><td>$1,124</td><td>$20,232</td><td><span class="pill pill-critical">Critical</span></td><td>Spiky</td></tr>
+            <tr class="row-danger"><td>Classic-to-CJB Migration</td><td>Classic automation editing caused unintended send to 6K+</td><td>18</td><td>14</td><td>$1,560</td><td>$21,840</td><td><span class="pill pill-critical">Critical</span></td><td>Spiky</td></tr>
+            <tr class="row-warning"><td>Classic-to-CJB Migration</td><td>Can't extract daily performance reports from classic</td><td>14</td><td>11</td><td>$1,402</td><td>$15,422</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Classic-to-CJB Migration</td><td>Journey emails still use legacy builder</td><td>12</td><td>10</td><td>$904</td><td>$9,040</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Flow Complexity &amp; UX</td><td>A/B testing creates 14+ emails and 30+ steps</td><td>24</td><td>21</td><td>$612</td><td>$12,852</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Flow Complexity &amp; UX</td><td>Too many steps for simple drip campaigns</td><td>19</td><td>16</td><td>$534</td><td>$8,544</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Flow Complexity &amp; UX</td><td>Confusing test email UI (looks like sending to real contacts)</td><td>14</td><td>12</td><td>$1,260</td><td>$15,120</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Flow Complexity &amp; UX</td><td>No way to exclude contacts already in another flow</td><td>12</td><td>10</td><td>$576</td><td>$5,760</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Flow Complexity &amp; UX</td><td>Can't drag/drop elements within flow to reorder</td><td>9</td><td>8</td><td>$467</td><td>$3,736</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>SMS Automation Issues</td><td>SMS automations won't load or save</td><td>18</td><td>15</td><td>$982</td><td>$14,730</td><td><span class="pill pill-critical">Critical</span></td><td>Spiky</td></tr>
+            <tr class="row-warning"><td>SMS Automation Issues</td><td>No notification when credits run out mid-flow</td><td>16</td><td>13</td><td>$630</td><td>$8,190</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>SMS Automation Issues</td><td>SMS limited to one audience</td><td>14</td><td>12</td><td>$630</td><td>$7,560</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>SMS Automation Issues</td><td>Can't estimate credits needed in advance</td><td>8</td><td>7</td><td>$630</td><td>$4,410</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Trigger &amp; Logic Limitations</td><td>Max 3 triggers limit</td><td>16</td><td>14</td><td>$812</td><td>$11,368</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Trigger &amp; Logic Limitations</td><td>No date/time-based triggers</td><td>14</td><td>12</td><td>$655</td><td>$7,860</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Trigger &amp; Logic Limitations</td><td>No advanced segmentation in journeys (only basic)</td><td>12</td><td>10</td><td>$2,142</td><td>$21,420</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Trigger &amp; Logic Limitations</td><td>Re-entry settings reset to 5 minutes (bug)</td><td>8</td><td>7</td><td>$348</td><td>$2,436</td><td><span class="pill pill-high">High</span></td><td>Worsening</td></tr>
+            <tr class="row-warning"><td>Reporting &amp; Analytics Gaps</td><td>Limited reporting for automation engagement</td><td>16</td><td>14</td><td>$1,005</td><td>$14,070</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Reporting &amp; Analytics Gaps</td><td>No way to set timeframe on journey reports</td><td>12</td><td>10</td><td>$1,041</td><td>$10,410</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Reporting &amp; Analytics Gaps</td><td>Can't generate cross-email click report</td><td>10</td><td>8</td><td>$1,005</td><td>$8,040</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Flow Management</td><td>Can't replicate an entire journey</td><td>14</td><td>12</td><td>$524</td><td>$6,288</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Flow Management</td><td>No way to archive (only pause or delete)</td><td>12</td><td>8</td><td>$310</td><td>$2,480</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Flow Management</td><td>Can't copy a portion of a flow to reuse</td><td>8</td><td>7</td><td>$1,437</td><td>$10,059</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Performance &amp; Bugs</td><td>CJB slow and buggy</td><td>12</td><td>10</td><td>$860</td><td>$8,600</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Performance &amp; Bugs</td><td>If/then changes don't retroactively apply</td><td>6</td><td>5</td><td>$1,401</td><td>$7,005</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Missing Capabilities</td><td>Event/weather-based triggers (C3)</td><td>4</td><td>2</td><td>$17,500</td><td>$35,000</td><td><span class="pill pill-medium">Medium</span></td><td>New</td></tr>
+            <tr class="row-warning"><td>Missing Capabilities</td><td>Campaign approval workflow (C3)</td><td>4</td><td>2</td><td>$17,500</td><td>$35,000</td><td><span class="pill pill-high">High</span></td><td>New</td></tr>
+            <tr><td>Missing Capabilities</td><td>AI multi-channel campaign creation (C3)</td><td>4</td><td>2</td><td>$17,500</td><td>$35,000</td><td><span class="pill pill-medium">Medium</span></td><td>New</td></tr>
+        </tbody>
+    </table>
+
+    <h2>High-Value Escalations</h2>
+    <p class="subtitle">Top CJB-specific escalations from CS teams — highest-risk accounts.</p>
+    <table>
+        <thead><tr><th>Customer</th><th>MRR</th><th>Issue</th><th>Priority</th></tr></thead>
+        <tbody>
+            <tr class="row-danger"><td>C3 Festivals</td><td>$35,000</td><td>Event triggers, weather triggers, approval workflow, AI multi-channel</td><td><span class="pill pill-p1">P1</span></td></tr>
+            <tr class="row-warning"><td>Seal Skin Covers</td><td>$6,253</td><td>Can't extract daily reports from classic during migration</td><td><span class="pill pill-p2">P2</span></td></tr>
+            <tr class="row-danger"><td>[Premium $1,950]</td><td>$1,950</td><td>Classic automation edit caused mass send to 6,840 contacts</td><td><span class="pill pill-p0">P0</span></td></tr>
+            <tr><td>[Premium $1,560]</td><td>$1,560</td><td>Test email UI confusing — appears to send to real contacts</td><td><span class="pill pill-p2">P2</span></td></tr>
+            <tr><td>[Premium $3,000]</td><td>$3,000</td><td>No advanced segmentation in journeys, no nesting</td><td><span class="pill pill-p2">P2</span></td></tr>
+            <tr class="row-warning"><td>Avas</td><td>$5,000+</td><td>Abandoned cart not supported on custom sites with CJB</td><td><span class="pill pill-p2">P2</span></td></tr>
+        </tbody>
+    </table>
+
+    <h2>Product Priority Matrix</h2>
+
+    <div class="callout callout-danger">Fix Trust First — Issues eroding confidence and driving churn risk</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>Classic automation editing triggers unintended sends</td><td>18</td><td>$22K</td><td>Spiky</td><td>Automations</td></tr>
+            <tr><td>Historical data lost on classic-to-CJB conversion</td><td>28</td><td>$21K</td><td>Worsening</td><td>Automations</td></tr>
+            <tr><td>SMS automations won't load or save</td><td>18</td><td>$15K</td><td>Spiky</td><td>SMS/Automations</td></tr>
+            <tr><td>Re-entry settings reset bug</td><td>8</td><td>$2.4K</td><td>Worsening</td><td>Automations</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-warning">Reduce Complexity — Simplifying the builder for power users</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>A/B testing excessive complexity (30+ steps)</td><td>24</td><td>$13K</td><td>Stable</td><td>Automations</td></tr>
+            <tr><td>No advanced segmentation in journeys</td><td>12</td><td>$21K</td><td>Stable</td><td>Automations</td></tr>
+            <tr><td>Confusing test email UI</td><td>14</td><td>$15K</td><td>Stable</td><td>Automations</td></tr>
+            <tr><td>Max 3 trigger limit</td><td>16</td><td>$11K</td><td>Stable</td><td>Automations</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-info">Close Migration Gaps — Ensuring smooth classic-to-CJB transition</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>No notification of classic automation sunset</td><td>22</td><td>$20K</td><td>Spiky</td><td>Product Comms</td></tr>
+            <tr><td>Journey emails still use legacy builder</td><td>12</td><td>$9K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>Can't extract daily reports from classic</td><td>14</td><td>$15K</td><td>Stable</td><td>Reporting</td></tr>
+            <tr><td>Replicate entire journey not supported</td><td>14</td><td>$6K</td><td>Stable</td><td>Automations</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-neutral">Build Differentiation — Competitive features and delight</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>Event/weather-based triggers</td><td>4</td><td>$35K</td><td>New</td><td>Automations</td></tr>
+            <tr><td>Campaign approval workflow</td><td>4</td><td>$35K</td><td>New</td><td>Automations</td></tr>
+            <tr><td>AI multi-channel campaign agent (Freddie)</td><td>4</td><td>$35K</td><td>New</td><td>AI/Freddie</td></tr>
+            <tr><td>Automation reporting with engagement visibility</td><td>16</td><td>$14K</td><td>Stable</td><td>Reporting</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Recommendations</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Immediate (Now)</h3>
+            <p>1. Fix classic automation editing bug that caused mass unintended send</p>
+            <p>2. Fix SMS automation load/save failures</p>
+            <p>3. Fix re-entry settings reset bug (defaults to 5 min)</p>
+            <p>4. Add notification for SMS credits running out mid-flow</p>
+        </div>
+        <div class="card">
+            <h3>Next Quarter</h3>
+            <p>1. Preserve historical data when converting classic to CJB</p>
+            <p>2. Simplify A/B testing in flows (reduce step count)</p>
+            <p>3. Add advanced segmentation support in journeys</p>
+            <p>4. Increase trigger limit beyond 3</p>
+        </div>
+        <div class="card">
+            <h3>Later (Roadmap)</h3>
+            <p>1. Date/time-based triggers for scheduled campaigns</p>
+            <p>2. Journey replication and partial copy/paste</p>
+            <p>3. Archive functionality for paused journeys</p>
+            <p>4. SMS across multiple audiences</p>
+        </div>
+        <div class="card">
+            <h3>Strategic (C3 Alpha)</h3>
+            <p>1. Event-based and weather-based triggers</p>
+            <p>2. Campaign approval workflow with audit trail</p>
+            <p>3. AI multi-channel campaign agent (Freddie)</p>
+            <p>4. Warehouse data integration for AI segmentation</p>
+        </div>
+    </div>
+
+    <p class="updated">Data caveats: Filtered to feedback where page URL contains "/customer-journey/" or text mentions automation, journey, flow, CJB, or trigger. C3 Festivals represents single $35K MRR account. Sources: #hvc_feedback | #mc-hvc-escalations.</p>
+
+    <script>
+    const chartColors = {
+        danger: 'rgba(239, 83, 80, 0.8)',
+        success: 'rgba(102, 187, 106, 0.8)',
+        warning: 'rgba(255, 167, 38, 0.8)',
+        info: 'rgba(66, 165, 245, 0.8)',
+        muted: 'rgba(160, 160, 160, 0.5)',
+    };
+    Chart.defaults.color = '#a0a0a0';
+    Chart.defaults.borderColor = 'rgba(42, 58, 94, 0.5)';
+
+    // Sentiment comparison (stacked normalized)
+    new Chart(document.getElementById('sentimentCompareChart'), {
+        type: 'bar',
+        data: {
+            labels: ['CJB / Marketing Automation Flows', 'Overall Platform'],
+            datasets: [
+                { label: 'Negative', data: [71, 62], backgroundColor: chartColors.danger },
+                { label: 'Neutral', data: [16, 21], backgroundColor: chartColors.muted },
+                { label: 'Positive', data: [13, 17], backgroundColor: chartColors.success }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                x: { stacked: true, max: 100, ticks: { callback: v => v + '%' } },
+                y: { stacked: true }
+            }
+        }
+    });
+
+    // Top themes horizontal bar chart
+    new Chart(document.getElementById('themesChart'), {
+        type: 'bar',
+        data: {
+            labels: [
+                'Classic-to-CJB Migration \u2014 94 (23%)',
+                'Flow Complexity & UX \u2014 78 (19%)',
+                'SMS Automation Issues \u2014 62 (15%)',
+                'Trigger & Logic Limitations \u2014 54 (13%)',
+                'Reporting & Analytics Gaps \u2014 46 (11%)',
+                'Flow Management (copy/archive) \u2014 38 (9%)',
+                'Performance & Bugs \u2014 24 (6%)',
+                'Missing Capabilities \u2014 16 (4%)'
+            ],
+            datasets: [{
+                label: 'Feedback Count',
+                data: [94, 78, 62, 54, 46, 38, 24, 16],
+                backgroundColor: [
+                    chartColors.danger,
+                    chartColors.warning,
+                    chartColors.info,
+                    '#ab47bc',
+                    '#ff7043',
+                    '#fdd835',
+                    '#78909c',
+                    '#26a69a'
+                ]
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true } }
+        }
+    });
+    </script>
+</body>
+</html>
