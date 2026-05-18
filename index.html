@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Builder VOC Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface-elevated: #1f2f4d;
+            --text: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #707070;
+            --accent: #4fc3f7;
+            --danger: #ef5350;
+            --warning: #ffa726;
+            --success: #66bb6a;
+            --info: #42a5f5;
+            --border: #2a3a5e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        h2 { font-size: 20px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        h3 { font-size: 16px; font-weight: 600; margin: 16px 0 8px; }
+        .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 4px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        .stat-danger .stat-value { color: var(--danger); }
+        .stat-warning .stat-value { color: var(--warning); }
+        .stat-success .stat-value { color: var(--success); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 24px;
+            font-size: 13px;
+        }
+        th {
+            background: var(--surface);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            color: var(--accent);
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover td { background: var(--surface); }
+        tr.row-danger td { border-left: 3px solid var(--danger); }
+        tr.row-warning td { border-left: 3px solid var(--warning); }
+        .chart-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 12px 0;
+        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .callout {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .callout-danger { background: rgba(239,83,80,0.12); border-left: 4px solid var(--danger); color: var(--danger); }
+        .callout-warning { background: rgba(255,167,38,0.12); border-left: 4px solid var(--warning); color: var(--warning); }
+        .callout-info { background: rgba(66,165,245,0.12); border-left: 4px solid var(--info); color: var(--info); }
+        .callout-neutral { background: rgba(224,224,224,0.08); border-left: 4px solid var(--text-muted); color: var(--text-secondary); }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .card h3 { margin-top: 0; color: var(--accent); }
+        .card p { font-size: 13px; margin: 6px 0; }
+        .updated { color: var(--text-muted); font-size: 11px; margin-top: 32px; text-align: center; }
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .pill-critical { background: rgba(239,83,80,0.2); color: var(--danger); }
+        .pill-high { background: rgba(255,167,38,0.2); color: var(--warning); }
+        .pill-medium { background: rgba(66,165,245,0.2); color: var(--info); }
+        .pill-low { background: rgba(224,224,224,0.15); color: var(--text-secondary); }
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .grid-2 { grid-template-columns: 1fr; }
+            body { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Unified Builder VOC Analysis</h1>
+    <p class="subtitle">#hvc_feedback and #mc-hvc-escalations | Nov 2024 – May 2026 | HVC customers ($299+ MRR)</p>
+    <p class="subtitle">Deduplicated by user_id + theme. Excludes bot/test accounts. Last updated: <strong id="lastUpdated">May 18, 2026</strong></p>
+
+    <div class="stats-grid">
+        <div class="stat"><div class="stat-value">~4,200</div><div class="stat-label">Total Feedback Items (18mo)</div></div>
+        <div class="stat stat-danger"><div class="stat-value">62%</div><div class="stat-label">Negative Sentiment</div></div>
+        <div class="stat stat-warning"><div class="stat-value">$2.4M</div><div class="stat-label">Est. MRR Exposed (negative)</div></div>
+        <div class="stat"><div class="stat-value">847</div><div class="stat-label">Unique Customers</div></div>
+    </div>
+
+    <h2>Sentiment Trend (Monthly)</h2>
+    <div class="chart-container">
+        <canvas id="sentimentChart" height="80"></canvas>
+    </div>
+
+    <h2>Top Themes Driving Negative Feedback</h2>
+    <p class="subtitle">Classified from ~2,600 negative feedback items. Deduplicated: same user + same theme counted once per month.</p>
+    <div class="chart-container">
+        <canvas id="themesChart" height="120"></canvas>
+    </div>
+
+    <h2>Full Issue Breakdown by Theme</h2>
+    <p class="subtitle">Each row maps to one of the top themes above. Sub-issues within a theme sum approximately to its bar chart total.</p>
+    <table>
+        <thead><tr><th>Theme</th><th>Sub-Issue</th><th>Count</th><th>Unique Users</th><th>Avg MRR</th><th>Total MRR</th><th>Severity</th><th>Trend</th></tr></thead>
+        <tbody>
+            <tr><td>Performance & Slow</td><td>Segment builder takes too long to load</td><td>98</td><td>81</td><td>$642</td><td>$52,002</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Performance & Slow</td><td>Pages slow to load / unresponsive UI</td><td>87</td><td>72</td><td>$589</td><td>$42,408</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Performance & Slow</td><td>Email builder laggy during editing</td><td>64</td><td>52</td><td>$728</td><td>$37,856</td><td><span class="pill pill-high">High</span></td><td>Improving</td></tr>
+            <tr><td>Performance & Slow</td><td>Campaign manager slow / calendar lag</td><td>58</td><td>46</td><td>$813</td><td>$37,398</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Performance & Slow</td><td>Image handling slow</td><td>54</td><td>43</td><td>$561</td><td>$24,123</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>Performance & Slow</td><td>API endpoint performance degradation</td><td>51</td><td>12</td><td>$5,200</td><td>$62,400</td><td><span class="pill pill-critical">Critical</span></td><td>Worsening</td></tr>
+            <tr><td>Usability & Workflow</td><td>Too many steps for common tasks</td><td>92</td><td>78</td><td>$524</td><td>$40,872</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Usability & Workflow</td><td>Hard to find features / confusing nav</td><td>84</td><td>69</td><td>$618</td><td>$42,642</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Usability & Workflow</td><td>Audience/contact management clunky</td><td>72</td><td>58</td><td>$687</td><td>$39,846</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>Usability & Workflow</td><td>Drag & drop unreliable in layouts</td><td>76</td><td>61</td><td>$534</td><td>$32,574</td><td><span class="pill pill-high">High</span></td><td>Worsening</td></tr>
+            <tr><td>Usability & Workflow</td><td>Reporting hard to use / metrics confusing</td><td>63</td><td>51</td><td>$742</td><td>$37,842</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>Rendering Issues</td><td>Email looks different in inbox vs preview</td><td>89</td><td>72</td><td>$684</td><td>$49,248</td><td><span class="pill pill-critical">Critical</span></td><td>Stable</td></tr>
+            <tr><td>Rendering Issues</td><td>Mobile vs desktop mismatch</td><td>68</td><td>55</td><td>$612</td><td>$33,660</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Rendering Issues</td><td>Outlook rendering broken</td><td>54</td><td>44</td><td>$593</td><td>$26,092</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Rendering Issues</td><td>Forwarded emails lose formatting</td><td>48</td><td>39</td><td>$571</td><td>$22,269</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Rendering Issues</td><td>Dark mode display issues</td><td>42</td><td>35</td><td>$648</td><td>$22,680</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Migration & Legacy</td><td>No path to migrate legacy templates</td><td>68</td><td>54</td><td>$612</td><td>$33,048</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Migration & Legacy</td><td>Missing feature parity with legacy builder</td><td>62</td><td>49</td><td>$587</td><td>$28,763</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Migration & Legacy</td><td>Can't switch builder on existing content</td><td>52</td><td>42</td><td>$691</td><td>$29,022</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Migration & Legacy</td><td>Legacy templates break when opened</td><td>48</td><td>38</td><td>$564</td><td>$21,432</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Migration & Legacy</td><td>Saved blocks don't transfer</td><td>38</td><td>31</td><td>$543</td><td>$16,833</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Support Frustration</td><td>Can't reach a human / chatbot useless</td><td>82</td><td>68</td><td>$542</td><td>$36,856</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>Support Frustration</td><td>Long wait times for support</td><td>64</td><td>53</td><td>$618</td><td>$32,754</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Support Frustration</td><td>Support can't solve the issue</td><td>52</td><td>44</td><td>$724</td><td>$31,856</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Support Frustration</td><td>Escalation fatigue / known bug not fixed</td><td>36</td><td>29</td><td>$892</td><td>$25,868</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>Save/Lost Work</td><td>Campaign not saving / vanished after save</td><td>72</td><td>58</td><td>$621</td><td>$36,018</td><td><span class="pill pill-critical">Critical</span></td><td>Spiky</td></tr>
+            <tr class="row-danger"><td>Save/Lost Work</td><td>Error Occurred reload loop</td><td>61</td><td>49</td><td>$584</td><td>$28,616</td><td><span class="pill pill-critical">Critical</span></td><td>Spiky</td></tr>
+            <tr class="row-danger"><td>Save/Lost Work</td><td>Template work lost after hours of editing</td><td>48</td><td>39</td><td>$692</td><td>$26,988</td><td><span class="pill pill-critical">Critical</span></td><td>Improving</td></tr>
+            <tr><td>Save/Lost Work</td><td>Autosave not working reliably</td><td>37</td><td>31</td><td>$567</td><td>$17,577</td><td><span class="pill pill-high">High</span></td><td>Improving</td></tr>
+            <tr><td>Missing Features</td><td>Dynamic content / conditional logic gap</td><td>48</td><td>39</td><td>$812</td><td>$31,668</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Missing Features</td><td>Reusable sections / component library</td><td>42</td><td>35</td><td>$687</td><td>$24,045</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Missing Features</td><td>No background images in new builder</td><td>34</td><td>29</td><td>$502</td><td>$14,558</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Missing Features</td><td>Dark mode design support</td><td>31</td><td>28</td><td>$615</td><td>$17,220</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Formatting Controls</td><td>Fonts inconsistent or reset across blocks</td><td>58</td><td>47</td><td>$591</td><td>$27,777</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Formatting Controls</td><td>Spacing/alignment hard to control</td><td>42</td><td>34</td><td>$567</td><td>$19,278</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Formatting Controls</td><td>Copy-paste from docs breaks format</td><td>38</td><td>31</td><td>$524</td><td>$16,244</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Formatting Controls</td><td>Line breaks on mobile not in desktop</td><td>25</td><td>21</td><td>$712</td><td>$14,952</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>UI Keeps Changing</td><td>Interface changes without notice</td><td>62</td><td>51</td><td>$687</td><td>$35,037</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr><td>UI Keeps Changing</td><td>Features moved / can't find workflows</td><td>48</td><td>39</td><td>$612</td><td>$23,868</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>UI Keeps Changing</td><td>New UI not intuitive / confusing menus</td><td>34</td><td>28</td><td>$592</td><td>$16,576</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>AI/Freddie Issues</td><td>Edit with AI prompt takes up screen space</td><td>34</td><td>28</td><td>$1,142</td><td>$31,976</td><td><span class="pill pill-medium">Medium</span></td><td>Worsening</td></tr>
+            <tr><td>AI/Freddie Issues</td><td>AI-generated drafts confuse team</td><td>28</td><td>23</td><td>$487</td><td>$11,201</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>AI/Freddie Issues</td><td>Send Time Optimization not working</td><td>24</td><td>19</td><td>$1,284</td><td>$24,396</td><td><span class="pill pill-high">High</span></td><td>Worsening</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Email Builder Specific Issues</h2>
+    <p class="subtitle">Filtered view: only feedback explicitly mentioning email builder, new builder, legacy builder, template editor, or campaign builder.</p>
+    <table>
+        <thead><tr><th>Issue</th><th>Count</th><th>Unique Users</th><th>Avg MRR</th><th>Total MRR</th><th>Severity</th><th>Trend</th></tr></thead>
+        <tbody>
+            <tr class="row-danger"><td>New builder rendering differs from preview/sent</td><td>89</td><td>72</td><td>$684</td><td>$49,248</td><td><span class="pill pill-critical">Critical</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>Drag & drop broken/clunky in new builder</td><td>76</td><td>61</td><td>$534</td><td>$32,574</td><td><span class="pill pill-high">High</span></td><td>Worsening</td></tr>
+            <tr class="row-warning"><td>Cannot migrate legacy templates to new builder</td><td>68</td><td>54</td><td>$612</td><td>$33,048</td><td><span class="pill pill-high">High</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Builder slow/laggy during editing</td><td>64</td><td>52</td><td>$728</td><td>$37,856</td><td><span class="pill pill-high">High</span></td><td>Improving</td></tr>
+            <tr><td>Formatting/fonts inconsistent or lost</td><td>58</td><td>47</td><td>$591</td><td>$27,777</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>No collaboration/multi-user editing</td><td>42</td><td>38</td><td>$856</td><td>$32,528</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr class="row-danger"><td>Content blocks disappear or can't duplicate</td><td>39</td><td>32</td><td>$943</td><td>$30,176</td><td><span class="pill pill-critical">Critical</span></td><td>Spiky</td></tr>
+            <tr class="row-danger"><td>Save failures / lost work</td><td>37</td><td>31</td><td>$721</td><td>$22,351</td><td><span class="pill pill-critical">Critical</span></td><td>Improving</td></tr>
+            <tr><td>No background images in new builder</td><td>34</td><td>29</td><td>$502</td><td>$14,558</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Dark mode not supported in builder</td><td>31</td><td>28</td><td>$615</td><td>$17,220</td><td><span class="pill pill-medium">Medium</span></td><td>Stable</td></tr>
+            <tr><td>Ctrl+K / keyboard shortcuts missing</td><td>27</td><td>22</td><td>$712</td><td>$15,664</td><td><span class="pill pill-low">Low</span></td><td>Stable</td></tr>
+            <tr class="row-warning"><td>Edit with AI prompt takes up screen space</td><td>24</td><td>21</td><td>$1,284</td><td>$26,964</td><td><span class="pill pill-medium">Medium</span></td><td>Worsening</td></tr>
+        </tbody>
+    </table>
+
+    <h2>MRR Exposure by Theme</h2>
+    <div class="chart-container">
+        <canvas id="mrrChart" height="80"></canvas>
+    </div>
+
+    <h2>High-Value Escalations ($5K+ MRR)</h2>
+    <p class="subtitle">Top escalated issues from CS teams — highest-risk accounts.</p>
+    <table>
+        <thead><tr><th>Customer</th><th>MRR</th><th>Issue</th><th>Product Area</th><th>Priority</th></tr></thead>
+        <tbody>
+            <tr class="row-danger"><td>C3 Festivals</td><td>$35,000</td><td>Analytics reporting gaps — no channel-level net growth</td><td>Analytics</td><td>P0</td></tr>
+            <tr><td>ElDiario.es</td><td>$11,000</td><td>Unsubscribe form not editable, form builder disparity</td><td>Forms</td><td>P2</td></tr>
+            <tr><td>BDG Media</td><td>$5,200+</td><td>No API for exporting campaign analytics to external tools</td><td>Analytics/API</td><td>P2</td></tr>
+            <tr class="row-warning"><td>Fivetran</td><td>$5,000+</td><td>API /reports/email-activity endpoint too slow (N+1 queries)</td><td>API Performance</td><td>P1</td></tr>
+            <tr class="row-warning"><td>[Premium $8,400]</td><td>$8,400</td><td>Bug fixes needed — general instability</td><td>Platform</td><td>P1</td></tr>
+            <tr><td>[Premium $5,200]</td><td>$5,200</td><td>UX issues — button placement, tag management</td><td>UX/Platform</td><td>P2</td></tr>
+            <tr class="row-warning"><td>[Premium $4,579]</td><td>$4,579</td><td>Send Time Optimization not working</td><td>Delivery</td><td>P1</td></tr>
+            <tr><td>[Premium $2,949]</td><td>$2,949</td><td>Cannot switch builders in existing journey content</td><td>Email Builder</td><td>P2</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Product Priority Matrix</h2>
+
+    <div class="callout callout-danger">Fix Trust First — Issues eroding confidence and driving churn risk</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>Builder crashes / error loops / reload failures</td><td>243</td><td>$224K</td><td>Spiky</td><td>Engineering</td></tr>
+            <tr><td>Rendering mismatch (preview vs sent vs mobile)</td><td>89</td><td>$298K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>Content blocks disappearing / can't duplicate</td><td>39</td><td>$94K</td><td>Spiky</td><td>Email Builder</td></tr>
+            <tr><td>API performance (N+1 query patterns)</td><td>12</td><td>$180K+</td><td>Worsening</td><td>API Core</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-warning">Close Parity Gaps — Blocking migration from legacy builder</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>No template migration path (legacy to new)</td><td>68</td><td>$41K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>Missing collaboration / multi-user editing</td><td>42</td><td>$36K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>No background images in new builder</td><td>34</td><td>$15K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>Click tracking regression (Title field removed)</td><td>31</td><td>$17K</td><td>Stable</td><td>Analytics</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-info">Improve Usability — Reducing daily friction for power users</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>Drag & drop unreliable in 2-column layouts</td><td>76</td><td>$33K</td><td>Worsening</td><td>Email Builder</td></tr>
+            <tr><td>Builder performance / loading times</td><td>64</td><td>$384K</td><td>Improving</td><td>Platform</td></tr>
+            <tr><td>UI changes without notice disrupting workflows</td><td>167</td><td>$98K</td><td>Stable</td><td>Product/Design</td></tr>
+            <tr><td>Formatting/font inconsistencies across blocks</td><td>58</td><td>$28K</td><td>Stable</td><td>Email Builder</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-neutral">Build Differentiation — Competitive features and delight</div>
+    <table>
+        <thead><tr><th>Issue</th><th>Volume</th><th>MRR Exposed</th><th>Trend</th><th>Owner</th></tr></thead>
+        <tbody>
+            <tr><td>Dark mode design support in builder</td><td>31</td><td>$19K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>Reusable sections / component library</td><td>28</td><td>$21K</td><td>Stable</td><td>Email Builder</td></tr>
+            <tr><td>AI campaign agent (multi-channel creation)</td><td>3</td><td>$35K+</td><td>New</td><td>AI/Freddie</td></tr>
+            <tr><td>Automated report scheduling</td><td>8</td><td>$38K</td><td>Stable</td><td>Analytics</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Recommendations</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Immediate (Now)</h3>
+            <p>1. Fix "Error Occurred" reload loops — multiple customers blocked from sending</p>
+            <p>2. Resolve content block duplication bug — intermittent, high severity</p>
+            <p>3. Ship API performance fix (PRs #322991/#322993 already drafted)</p>
+            <p>4. Investigate drag-and-drop regression in 2-column layouts</p>
+        </div>
+        <div class="card">
+            <h3>Next Quarter</h3>
+            <p>1. Build template migration wizard (legacy to new builder)</p>
+            <p>2. Improve rendering consistency (preview = inbox)</p>
+            <p>3. Add collaboration indicators (who is editing)</p>
+            <p>4. Restore click-tracking Title field or equivalent</p>
+        </div>
+        <div class="card">
+            <h3>Later (Roadmap)</h3>
+            <p>1. Dark mode builder support</p>
+            <p>2. Reusable sections / component library</p>
+            <p>3. Background image support in new builder</p>
+            <p>4. AI campaign planning agent (Freddie multi-channel)</p>
+        </div>
+        <div class="card">
+            <h3>Process Changes</h3>
+            <p>1. Notify users before UI changes — #1 frustration driver</p>
+            <p>2. Improve chatbot-to-human handoff</p>
+            <p>3. Templatize embedded form builds</p>
+            <p>4. Cross-train CS on new builder capabilities</p>
+        </div>
+    </div>
+
+    <h2>Competitor Signals</h2>
+    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="stat stat-danger"><div class="stat-value">14</div><div class="stat-label">Mentions of switching</div></div>
+        <div class="stat stat-warning"><div class="stat-value">$112K</div><div class="stat-label">MRR at switching risk</div></div>
+        <div class="stat"><div class="stat-value">Klaviyo</div><div class="stat-label">Most mentioned competitor</div></div>
+    </div>
+    <p class="subtitle">Other competitors: HubSpot (4), Campaign Monitor (2), Constant Contact (1). Primary driver: mobile-first design and embedded form flexibility.</p>
+
+    <p class="updated">Data sources: #hvc_feedback (automated PRS/CSAT/In-App surveys) | #mc-hvc-escalations (CS-filed product escalations for $5K+ MRR)</p>
+
+    <script>
+    const chartColors = {
+        danger: 'rgba(239, 83, 80, 0.8)',
+        success: 'rgba(102, 187, 106, 0.8)',
+        warning: 'rgba(255, 167, 38, 0.8)',
+        info: 'rgba(66, 165, 245, 0.8)',
+        muted: 'rgba(160, 160, 160, 0.5)',
+    };
+    Chart.defaults.color = '#a0a0a0';
+    Chart.defaults.borderColor = 'rgba(42, 58, 94, 0.5)';
+
+    // Sentiment trend chart
+    new Chart(document.getElementById('sentimentChart'), {
+        type: 'line',
+        data: {
+            labels: ["Nov'24","Dec'24","Jan'25","Feb'25","Mar'25","Apr'25","May'25","Jun'25","Jul'25","Aug'25","Sep'25","Oct'25","Nov'25","Dec'25","Jan'26","Feb'26","Mar'26","Apr'26","May'26"],
+            datasets: [
+                { label: 'Negative %', data: [58,61,64,68,65,63,60,59,62,63,64,61,60,62,65,67,63,60,58], borderColor: chartColors.danger, backgroundColor: 'rgba(239,83,80,0.1)', fill: true, tension: 0.3 },
+                { label: 'Positive %', data: [22,19,17,14,16,18,20,21,18,17,16,19,20,18,16,15,17,20,22], borderColor: chartColors.success, backgroundColor: 'rgba(102,187,106,0.1)', fill: true, tension: 0.3 }
+            ]
+        },
+        options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, max: 80, ticks: { callback: v => v + '%' } } } }
+    });
+
+    // Themes horizontal bar chart
+    new Chart(document.getElementById('themesChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Performance & Slow — 412 (16%)', 'Usability & Workflow — 387 (15%)', 'Rendering Issues — 324 (12%)', 'Migration & Legacy — 298 (11%)', 'Support Frustration — 276 (11%)', 'Save/Lost Work — 243 (9%)', 'Missing Features — 218 (8%)', 'Formatting Controls — 195 (8%)', 'UI Keeps Changing — 167 (6%)', 'AI/Freddie Issues — 112 (4%)'],
+            datasets: [{ label: 'Feedback Count', data: [412,387,324,298,276,243,218,195,167,112], backgroundColor: [chartColors.danger, chartColors.warning, chartColors.info, '#ab47bc', '#ff7043', '#fdd835', '#78909c', '#26a69a', '#7e57c2', '#8d6e63'] }]
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+    });
+
+    // MRR exposure bar chart
+    new Chart(document.getElementById('mrrChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Performance', 'Rendering', 'Migration', 'Save/Lost Work', 'Support', 'Usability', 'Missing Features', 'Formatting'],
+            datasets: [{ label: 'MRR Exposed ($K)', data: [384,298,267,224,198,187,156,132], backgroundColor: chartColors.danger }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v + 'K' } } } }
+    });
+    </script>
+</body>
+</html>
